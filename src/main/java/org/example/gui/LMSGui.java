@@ -1,6 +1,8 @@
 package org.example.gui;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
@@ -9,8 +11,10 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
-// This class creates a simple GUI to display active students from the LMS API
+// This class creates a simple GUI to display students enrolled in courses from the LMS API
 public class LMSGui extends JFrame {
 
     private JTable table;
@@ -25,23 +29,31 @@ public class LMSGui extends JFrame {
 
     // Set up the GUI window with title, size and components
     public LMSGui() {
-        setTitle("LMS - Active Students");
-        setSize(500, 500);
+        setTitle("LMS - Enrolled Students");
+        setSize(600, 500);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
         // Create a title label at the top of the window
-        titleLabel = new JLabel("Active Students List", SwingConstants.CENTER);
+        titleLabel = new JLabel("Students Enrolled in Courses", SwingConstants.CENTER);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 16));
         titleLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
 
         // Create a search panel with a text field and search button
         JPanel searchPanel = new JPanel();
-        searchPanel.add(new JLabel("Search by name: "));
+        searchPanel.add(new JLabel("Search: "));
         searchField = new JTextField(15);
+
+        // Auto-search while typing using DocumentListener
+        searchField.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { searchTable(); }
+            public void removeUpdate(DocumentEvent e) { searchTable(); }
+            public void changedUpdate(DocumentEvent e) { searchTable(); }
+        });
+
         searchPanel.add(searchField);
         JButton searchButton = new JButton("Search");
-        searchButton.addActionListener(e -> searchStudent());
+        searchButton.addActionListener(e -> searchTable());
         searchPanel.add(searchButton);
 
         // Create a top panel to hold title and search
@@ -49,28 +61,29 @@ public class LMSGui extends JFrame {
         topPanel.add(titleLabel, BorderLayout.NORTH);
         topPanel.add(searchPanel, BorderLayout.SOUTH);
 
-        // Create a table with ID and Name columns to show students
-        tableModel = new DefaultTableModel(new String[]{"ID", "Name"}, 0);
+        // Create a table with Student Name and Course Name columns
+        tableModel = new DefaultTableModel(new String[]{"Student Name", "Course Name"}, 0);
         table = new JTable(tableModel);
         table.setRowHeight(25);
-
-        // Center the ID column
-        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-        centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
-        table.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
 
         // Set up sorter for search functionality
         sorter = new TableRowSorter<>(tableModel);
         table.setRowSorter(sorter);
 
-        // Create a label to show total number of students
-        countLabel = new JLabel("Total Students: 0", SwingConstants.CENTER);
+        // Center both columns
+        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
+        table.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
+        table.getColumnModel().getColumn(1).setCellRenderer(centerRenderer);
+
+        // Create a label to show total number of enrollments
+        countLabel = new JLabel("Total Enrollments: 0", SwingConstants.CENTER);
         countLabel.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
 
         // Create a button panel at the bottom
         JPanel buttonPanel = new JPanel();
 
-        // Button to load students from the API
+        // Button to load enrollments from the API
         fetchButton = new JButton("Load Students");
         fetchButton.addActionListener(e -> fetchStudents());
 
@@ -79,7 +92,7 @@ public class LMSGui extends JFrame {
         clearButton.addActionListener(e -> {
             // Clear all rows from the table
             tableModel.setRowCount(0);
-            countLabel.setText("Total Students: 0");
+            countLabel.setText("Total Enrollments: 0");
             statusLabel.setText("Table cleared");
             searchField.setText("");
         });
@@ -89,7 +102,7 @@ public class LMSGui extends JFrame {
         buttonPanel.add(clearButton);
 
         // Create a label at the bottom to show status messages
-        statusLabel = new JLabel("Click the button to load students", SwingConstants.CENTER);
+        statusLabel = new JLabel("Loading students...", SwingConstants.CENTER);
         statusLabel.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
 
         // Add status label and buttons to bottom panel
@@ -103,31 +116,40 @@ public class LMSGui extends JFrame {
         add(topPanel, BorderLayout.NORTH);
         add(new JScrollPane(table), BorderLayout.CENTER);
         add(bottomPanel, BorderLayout.SOUTH);
+
+        // Automatically load enrollments when the app starts
+        fetchStudents();
     }
 
-    // This method filters the table based on the name typed in the search field
-    private void searchStudent() {
-        String searchText = searchField.getText();
-        if (searchText.trim().isEmpty()) {
-            // If search field is empty show all students
+    // This method filters the table by both student name and course name
+    private void searchTable() {
+        String searchText = searchField.getText().trim();
+        if (searchText.isEmpty()) {
+            // If search field is empty show all enrollments
             sorter.setRowFilter(null);
-            statusLabel.setText("Showing all students");
+            statusLabel.setText("Showing all enrollments");
         } else {
-            // Filter table rows by name column
-            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + searchText, 1));
-            statusLabel.setText("Searching for: " + searchText);
+            try {
+                // Filter by both student name (column 0) and course name (column 1)
+                List<RowFilter<DefaultTableModel, Object>> filters = new ArrayList<>();
+                filters.add(RowFilter.regexFilter("(?i)" + searchText, 0));
+                filters.add(RowFilter.regexFilter("(?i)" + searchText, 1));
+                sorter.setRowFilter(RowFilter.orFilter(filters));
+                statusLabel.setText("Searching for: " + searchText);
+            } catch (Exception e) {
+                sorter.setRowFilter(null);
+            }
         }
     }
 
-    // This method connects to the API and loads the active students into the table
+    // This method connects to the API and loads all enrollments into the table
     private void fetchStudents() {
         try {
-            // Reset search filter when loading new data
             searchField.setText("");
             sorter.setRowFilter(null);
 
-            // Connect to the Spring Boot API endpoint for active students
-            URL url = new URL("http://localhost:8080/api/students/active");
+            // Connect to the Spring Boot API endpoint for all enrollments
+            URL url = new URL("http://localhost:8080/api/enrollments/list");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
 
@@ -144,22 +166,43 @@ public class LMSGui extends JFrame {
             // Clear old data from the table before adding new data
             tableModel.setRowCount(0);
 
-            // Parse the JSON response and add each student as a row in the table
             String json = response.toString();
-            String[] objects = json.replace("[", "").replace("]", "").split("\\},\\{");
+
+            // Split by each enrollment object using student field
+            String[] objects = json.split("\"student\":");
+
+            int count = 0;
             for (String obj : objects) {
-                obj = obj.replace("{", "").replace("}", "");
-                String[] fields = obj.split(",");
-                String id = fields[0].split(":")[1];
-                String name = fields[1].split(":")[1].replace("\"", "");
-                tableModel.addRow(new Object[]{id, name});
+                if (!obj.contains("\"name\":")) continue;
+
+                String studentName = "";
+                String courseName = "";
+
+                // Extract student name - first name field
+                int nameStart = obj.indexOf("\"name\":\"") + 8;
+                int nameEnd = obj.indexOf("\"", nameStart);
+                studentName = obj.substring(nameStart, nameEnd);
+
+                // Extract course name - after course field
+                if (obj.contains("\"course\":")) {
+                    int courseStart = obj.indexOf("\"course\":");
+                    String coursePart = obj.substring(courseStart);
+                    int courseNameStart = coursePart.indexOf("\"name\":\"") + 8;
+                    int courseNameEnd = coursePart.indexOf("\"", courseNameStart);
+                    courseName = coursePart.substring(courseNameStart, courseNameEnd);
+                }
+
+                if (!studentName.isEmpty() && !courseName.isEmpty()) {
+                    tableModel.addRow(new Object[]{studentName, courseName});
+                    count++;
+                }
             }
 
-            // Update the total student count label
-            countLabel.setText("Total Students: " + objects.length);
+            // Update the total enrollment count label
+            countLabel.setText("Total Enrollments: " + count);
 
-            // Show how many students were loaded
-            statusLabel.setText("Loaded " + objects.length + " students successfully!");
+            // Show how many enrollments were loaded
+            statusLabel.setText("Loaded " + count + " enrollments successfully!");
 
         } catch (Exception ex) {
             // Show a friendly error message if the server is not running

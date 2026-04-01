@@ -51,4 +51,9 @@ public class EnrollmentService {
                 .filter(i -> !activeInstructors.contains(i))
                 .collect(Collectors.toList());
     }
+
+    // F5 - Get all enrollments showing student name and course name
+    public List<Enrollment> getAllEnrollments() {
+        return enrollmentRepository.findAll();
+    }
 }

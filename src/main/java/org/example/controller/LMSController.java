@@ -47,4 +47,10 @@ public class LMSController {
         List<Instructor> all = instructorRepository.findAll();
         return enrollmentService.getInstructorsWithNoEnrollments(all);
     }
+
+    // F5 - Get all enrollments showing student name and course name
+    @GetMapping("/enrollments/list")
+    public List<Enrollment> getAllEnrollments() {
+        return enrollmentService.getAllEnrollments();
+    }
 }

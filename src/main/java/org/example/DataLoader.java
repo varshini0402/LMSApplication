@@ -38,9 +38,9 @@ public class DataLoader implements CommandLineRunner {
         Student s5 = studentRepository.save(new Student(0, "Neville Longbottom"));
 
         // Create sample courses
-        Course c1 = courseRepository.save(new Course(0, "Defence Against the Dark Arts", i1));
-        Course c2 = courseRepository.save(new Course(0, "Potions", i2));
-        Course c3 = courseRepository.save(new Course(0, "Transfiguration", i2));
+        Course c1 = courseRepository.save(new Course(0, "Introduction to Programming", i1));
+        Course c2 = courseRepository.save(new Course(0, "Computing Project", i2));
+        Course c3 = courseRepository.save(new Course(0, "Introduction to Economics", i2));
 
         // Create sample enrollments
         enrollmentRepository.save(new Enrollment(0, s1, c1));
